@@ -61,6 +61,10 @@ public:
     void Integrate(const geometry::RGBDImage &image,
                    const camera::PinholeCameraIntrinsic &intrinsic,
                    const Eigen::Matrix4d &extrinsic) override;
+    void Integrate(const geometry::RGBDImage &image,
+                   const std::vector<float> &confidence,
+                   const camera::PinholeCameraIntrinsic &intrinsic,
+                   const Eigen::Matrix4d &extrinsic) override;
     std::shared_ptr<geometry::PointCloud> ExtractPointCloud() override;
     std::shared_ptr<geometry::TriangleMesh> ExtractTriangleMesh() override;
     /// Debug function to extract the voxel data into a point cloud.

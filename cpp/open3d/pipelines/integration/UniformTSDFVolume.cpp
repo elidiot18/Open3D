@@ -82,6 +82,54 @@ void UniformTSDFVolume::Integrate(
                                                  *depth2cameradistance);
 }
 
+void UniformTSDFVolume::Integrate(
+        const geometry::RGBDImage &image,
+        const std::vector<float> &confidence_map,
+        const camera::PinholeCameraIntrinsic &intrinsic,
+        const Eigen::Matrix4d &extrinsic) {
+    // This function goes through the voxels, and scan convert the relative
+    // depth/color value into the voxel.
+    // The following implementation is a highly optimized version.
+    if ((image.depth_.num_of_channels_ != 1) ||
+        (image.depth_.bytes_per_channel_ != 4) ||
+        (color_type_ == TSDFVolumeColorType::RGB8 &&
+         image.color_.num_of_channels_ != 3) ||
+        (color_type_ == TSDFVolumeColorType::RGB8 &&
+         image.color_.bytes_per_channel_ != 1) ||
+        (color_type_ == TSDFVolumeColorType::Gray32 &&
+         image.color_.num_of_channels_ != 1) ||
+        (color_type_ == TSDFVolumeColorType::Gray32 &&
+         image.color_.bytes_per_channel_ != 4)) {
+        utility::LogError("Unsupported image format.");
+    }
+    if ((image.depth_.width_ != intrinsic.width_) ||
+        (image.depth_.height_ != intrinsic.height_)) {
+        utility::LogError(
+                "Depth image size is ({} x {}), but got ({} x {}) from "
+                "intrinsic.",
+                image.depth_.width_, image.depth_.height_, intrinsic.width_,
+                intrinsic.height_);
+    }
+    if (color_type_ != TSDFVolumeColorType::NoColor &&
+        (image.color_.width_ != intrinsic.width_ ||
+         image.color_.height_ != intrinsic.height_)) {
+        utility::LogError(
+                "Color image size is ({} x {}), but got ({} x {}) from "
+                "intrinsic.",
+                image.color_.width_, image.color_.height_, intrinsic.width_,
+                intrinsic.height_);
+    }
+    if (confidence_map.size() != (std::vector<float>::size_type) (intrinsic.width_ * intrinsic.height_)) {
+        utility::LogError("Confidence map doesn't have the same number of pixels as the depth image.");
+    }
+
+    auto depth2cameradistance =
+            geometry::Image::CreateDepthToCameraDistanceMultiplierFloatImage(
+                    intrinsic);
+    IntegrateWithDepthToCameraDistanceMultiplier(image, confidence_map, intrinsic, extrinsic,
+                                                 *depth2cameradistance);
+}
+
 std::shared_ptr<geometry::PointCloud> UniformTSDFVolume::ExtractPointCloud() {
     auto pointcloud = std::make_shared<geometry::PointCloud>();
     double half_voxel_length = voxel_length_ * 0.5;
@@ -455,6 +503,103 @@ void UniformTSDFVolume::IntegrateWithDepthToCameraDistanceMultiplier(
                                 (voxels_[v_ind].weight_ + 1.0f);
                     }
                     voxels_[v_ind].weight_ += 1.0f;
+                }
+            }
+        }
+    }
+}
+
+void UniformTSDFVolume::IntegrateWithDepthToCameraDistanceMultiplier(
+        const geometry::RGBDImage &image,
+        const std::vector<float> &confidence_map,
+        const camera::PinholeCameraIntrinsic &intrinsic,
+        const Eigen::Matrix4d &extrinsic,
+        const geometry::Image &depth_to_camera_distance_multiplier) {
+    const float fx = static_cast<float>(intrinsic.GetFocalLength().first);
+    const float fy = static_cast<float>(intrinsic.GetFocalLength().second);
+    const float cx = static_cast<float>(intrinsic.GetPrincipalPoint().first);
+    const float cy = static_cast<float>(intrinsic.GetPrincipalPoint().second);
+    const Eigen::Matrix4f extrinsic_f = extrinsic.cast<float>();
+    const float voxel_length_f = static_cast<float>(voxel_length_);
+    const float half_voxel_length_f = voxel_length_f * 0.5f;
+    const float sdf_trunc_f = static_cast<float>(sdf_trunc_);
+    const float sdf_trunc_inv_f = 1.0f / sdf_trunc_f;
+    const Eigen::Matrix4f extrinsic_scaled_f = extrinsic_f * voxel_length_f;
+    const float safe_width_f = intrinsic.width_ - 0.0001f;
+    const float safe_height_f = intrinsic.height_ - 0.0001f;
+
+#ifdef _WIN32
+#pragma omp parallel for schedule(static) \
+        num_threads(utility::EstimateMaxThreads())
+#else
+#pragma omp parallel for collapse(2) schedule(static) \
+        num_threads(utility::EstimateMaxThreads())
+#endif
+    for (int x = 0; x < resolution_; x++) {
+        for (int y = 0; y < resolution_; y++) {
+            Eigen::Vector4f pt_3d_homo(float(half_voxel_length_f +
+                                             voxel_length_f * x + origin_(0)),
+                                       float(half_voxel_length_f +
+                                             voxel_length_f * y + origin_(1)),
+                                       float(half_voxel_length_f + origin_(2)),
+                                       1.f);
+            Eigen::Vector4f pt_camera = extrinsic_f * pt_3d_homo;
+            for (int z = 0; z < resolution_; z++,
+                     pt_camera(0) += extrinsic_scaled_f(0, 2),
+                     pt_camera(1) += extrinsic_scaled_f(1, 2),
+                     pt_camera(2) += extrinsic_scaled_f(2, 2)) {
+                // Skip if negative depth after projection
+                if (pt_camera(2) <= 0) {
+                    continue;
+                }
+                // Skip if x-y coordinate not in range
+                float u_f = pt_camera(0) * fx / pt_camera(2) + cx + 0.5f;
+                float v_f = pt_camera(1) * fy / pt_camera(2) + cy + 0.5f;
+                if (!(u_f >= 0.0001f && u_f < safe_width_f && v_f >= 0.0001f &&
+                      v_f < safe_height_f)) {
+                    continue;
+                }
+                // Skip if negative depth in depth image
+                int u = (int)u_f;
+                int v = (int)v_f;
+                float d = *image.depth_.PointerAt<float>(u, v);
+                if (d <= 0.0f) {
+                    continue;
+                }
+                float confidence = confidence_map[v * intrinsic.width_ + u];
+                if (confidence <= 0) continue;
+
+                int v_ind = IndexOf(x, y, z);
+                float sdf =
+                        (d - pt_camera(2)) *
+                        (*depth_to_camera_distance_multiplier.PointerAt<float>(
+                                u, v));
+                if (sdf > -sdf_trunc_f) {
+                    // integrate
+                    float tsdf = std::min(1.0f, sdf * sdf_trunc_inv_f);
+                    voxels_[v_ind].tsdf_ =
+                            (voxels_[v_ind].tsdf_ * voxels_[v_ind].weight_ +
+                             tsdf * confidence) /
+                            (voxels_[v_ind].weight_ + confidence);
+                    if (color_type_ == TSDFVolumeColorType::RGB8) {
+                        const uint8_t *rgb =
+                                image.color_.PointerAt<uint8_t>(u, v, 0);
+                        Eigen::Vector3d rgb_f(rgb[0], rgb[1], rgb[2]);
+                        voxels_[v_ind].color_ =
+                                (voxels_[v_ind].color_ *
+                                         voxels_[v_ind].weight_ +
+                                 rgb_f) /
+                                (voxels_[v_ind].weight_ + 1.0f);
+                    } else if (color_type_ == TSDFVolumeColorType::Gray32) {
+                        const float *intensity =
+                                image.color_.PointerAt<float>(u, v, 0);
+                        voxels_[v_ind].color_ =
+                                (voxels_[v_ind].color_.array() *
+                                         voxels_[v_ind].weight_ +
+                                 (*intensity) * confidence) /
+                                (voxels_[v_ind].weight_ + confidence);
+                    }
+                    voxels_[v_ind].weight_ += confidence;
                 }
             }
         }

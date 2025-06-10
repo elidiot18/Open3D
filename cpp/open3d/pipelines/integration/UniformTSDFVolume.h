@@ -50,6 +50,10 @@ public:
     void Integrate(const geometry::RGBDImage &image,
                    const camera::PinholeCameraIntrinsic &intrinsic,
                    const Eigen::Matrix4d &extrinsic) override;
+    void Integrate(const geometry::RGBDImage &image,
+                   const std::vector<float> &confidence_map,
+                   const camera::PinholeCameraIntrinsic &intrinsic,
+                   const Eigen::Matrix4d &extrinsic) override;
     std::shared_ptr<geometry::PointCloud> ExtractPointCloud() override;
     std::shared_ptr<geometry::TriangleMesh> ExtractTriangleMesh() override;
 
@@ -70,6 +74,12 @@ public:
     /// precomputed from camera intrinsic
     void IntegrateWithDepthToCameraDistanceMultiplier(
             const geometry::RGBDImage &image,
+            const camera::PinholeCameraIntrinsic &intrinsic,
+            const Eigen::Matrix4d &extrinsic,
+            const geometry::Image &depth_to_camera_distance_multiplier);
+    void IntegrateWithDepthToCameraDistanceMultiplier(
+            const geometry::RGBDImage &image,
+            const std::vector<float> &confidence_map,
             const camera::PinholeCameraIntrinsic &intrinsic,
             const Eigen::Matrix4d &extrinsic,
             const geometry::Image &depth_to_camera_distance_multiplier);

@@ -63,6 +63,12 @@ public:
                            const camera::PinholeCameraIntrinsic &intrinsic,
                            const Eigen::Matrix4d &extrinsic) = 0;
 
+    // With confidence
+    virtual void Integrate(const geometry::RGBDImage &image,
+                           const std::vector<float> &confidence_map,
+                           const camera::PinholeCameraIntrinsic &intrinsic,
+                           const Eigen::Matrix4d &extrinsic) = 0;
+
     /// Function to extract a point cloud with normals.
     virtual std::shared_ptr<geometry::PointCloud> ExtractPointCloud() = 0;
 
