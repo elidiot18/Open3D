@@ -84,7 +84,7 @@ void UniformTSDFVolume::Integrate(
 
 void UniformTSDFVolume::Integrate(
         const geometry::RGBDImage &image,
-        const std::vector<float> &confidence_map,
+        const Eigen::VectorXf &confidence_map,
         const camera::PinholeCameraIntrinsic &intrinsic,
         const Eigen::Matrix4d &extrinsic) {
     // This function goes through the voxels, and scan convert the relative
@@ -119,7 +119,7 @@ void UniformTSDFVolume::Integrate(
                 image.color_.width_, image.color_.height_, intrinsic.width_,
                 intrinsic.height_);
     }
-    if (confidence_map.size() != (std::vector<float>::size_type) (intrinsic.width_ * intrinsic.height_)) {
+    if (confidence_map.size() != intrinsic.width_ * intrinsic.height_) {
         utility::LogError("Confidence map doesn't have the same number of pixels as the depth image.");
     }
 
@@ -511,7 +511,7 @@ void UniformTSDFVolume::IntegrateWithDepthToCameraDistanceMultiplier(
 
 void UniformTSDFVolume::IntegrateWithDepthToCameraDistanceMultiplier(
         const geometry::RGBDImage &image,
-        const std::vector<float> &confidence_map,
+        const Eigen::VectorXf &confidence_map,
         const camera::PinholeCameraIntrinsic &intrinsic,
         const Eigen::Matrix4d &extrinsic,
         const geometry::Image &depth_to_camera_distance_multiplier) {

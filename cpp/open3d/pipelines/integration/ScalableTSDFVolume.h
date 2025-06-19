@@ -62,7 +62,7 @@ public:
                    const camera::PinholeCameraIntrinsic &intrinsic,
                    const Eigen::Matrix4d &extrinsic) override;
     void Integrate(const geometry::RGBDImage &image,
-                   const std::vector<float> &confidence,
+                   const Eigen::VectorXf &confidence,
                    const camera::PinholeCameraIntrinsic &intrinsic,
                    const Eigen::Matrix4d &extrinsic) override;
     std::shared_ptr<geometry::PointCloud> ExtractPointCloud() override;

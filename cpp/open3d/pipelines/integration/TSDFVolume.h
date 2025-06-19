@@ -65,7 +65,7 @@ public:
 
     // With confidence
     virtual void Integrate(const geometry::RGBDImage &image,
-                           const std::vector<float> &confidence_map,
+                           const Eigen::VectorXf &confidence_map,
                            const camera::PinholeCameraIntrinsic &intrinsic,
                            const Eigen::Matrix4d &extrinsic) = 0;
 

@@ -29,7 +29,7 @@ public:
                                extrinsic);
     }
     void Integrate(const geometry::RGBDImage &image,
-                   const std::vector<float> &confidence_map,
+                   const Eigen::VectorXf &confidence_map,
                    const camera::PinholeCameraIntrinsic &intrinsic,
                    const Eigen::Matrix4d &extrinsic) override {
         PYBIND11_OVERLOAD_PURE(void, TSDFVolumeBase, image, confidence_map, intrinsic,
@@ -117,7 +117,7 @@ void pybind_integration_definitions(py::module &m) {
                  "image"_a, "intrinsic"_a, "extrinsic"_a)
             .def("integrate_with_confidence",
                  static_cast<void (TSDFVolume::*)(const geometry::RGBDImage &,
-                                                  const std::vector<float> &,
+                                                  const Eigen::VectorXf &,
                                                   const camera::PinholeCameraIntrinsic &,
                                                   const Eigen::Matrix4d &)>(&TSDFVolume::Integrate),
                  "Function to integrate an RGB-D image with confidence map into the volume",

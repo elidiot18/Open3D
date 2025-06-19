@@ -99,7 +99,7 @@ void ScalableTSDFVolume::Integrate(
 
 void ScalableTSDFVolume::Integrate(
         const geometry::RGBDImage &image,
-        const std::vector<float> &confidence_map,
+        const Eigen::VectorXf &confidence_map,
         const camera::PinholeCameraIntrinsic &intrinsic,
         const Eigen::Matrix4d &extrinsic) {
     if ((image.depth_.num_of_channels_ != 1) ||
@@ -131,7 +131,7 @@ void ScalableTSDFVolume::Integrate(
                 image.color_.width_, image.color_.height_, intrinsic.width_,
                 intrinsic.height_);
     }
-    if (confidence_map.size() != (std::vector<float>::size_type) (intrinsic.width_ * intrinsic.height_)) {
+    if (confidence_map.size() != intrinsic.width_ * intrinsic.height_) {
         utility::LogError("Confidence map doesn't have the same number of pixels as the depth image.");
     }
 
