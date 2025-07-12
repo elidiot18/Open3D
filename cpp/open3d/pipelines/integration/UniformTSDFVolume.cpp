@@ -588,8 +588,8 @@ void UniformTSDFVolume::IntegrateWithDepthToCameraDistanceMultiplier(
                         voxels_[v_ind].color_ =
                                 (voxels_[v_ind].color_ *
                                          voxels_[v_ind].weight_ +
-                                 rgb_f) /
-                                (voxels_[v_ind].weight_ + 1.0f);
+                                 rgb_f * confidence) /
+                                (voxels_[v_ind].weight_ + confidence);
                     } else if (color_type_ == TSDFVolumeColorType::Gray32) {
                         const float *intensity =
                                 image.color_.PointerAt<float>(u, v, 0);
