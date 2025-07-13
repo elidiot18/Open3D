@@ -176,7 +176,7 @@ std::shared_ptr<geometry::PointCloud> UniformTSDFVolume::ExtractPointCloud() {
                                                 .cast<double>());
                             }
                             Eigen::Vector3d normal = GetNormalAt(p);
-                            normal *= 0.5f * (r0 + r1);  // custom addition: use weight as normal length
+                            normal *= 0.5f * (w0 + w1);  // custom addition: use weight as normal length
                             pointcloud->normals_.push_back(normal);
                         }
                     }
