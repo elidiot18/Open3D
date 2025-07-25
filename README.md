@@ -1,3 +1,8 @@
+# Custom fork of Open3D
+TSDF reconstructions now support confidence maps, in the form of a flat float vector.
+
+---------------------------
+
 <p align="center">
 <img src="https://raw.githubusercontent.com/isl-org/Open3D/main/docs/_static/open3d_logo_horizontal.png" width="320" />
 </p>
